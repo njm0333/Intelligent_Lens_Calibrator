@@ -1,44 +1,45 @@
 import numpy as np
 import cv2 as cv
 
-# The given video and calibration data
 video_file = 'chessboard.avi'
-K = np.array([[432.7390364738057, 0, 476.0614994349778],
-              [0, 431.2395555913084, 288.7602152621297],
-              [0, 0, 1]]) # Derived from `calibrate_camera.py`
-dist_coeff = np.array([-0.2852754904152874, 0.1016466459919075, -0.0004420196146339175, 0.0001149909868437517, -0.01803978785585194])
 
-# Open a video
+K = np.array([[956.49661865,   0.        , 961.37566344],
+              [  0.        , 962.04059292, 536.96602399],
+              [  0.        ,   0.        ,   1.        ]])
+
+dist_coeff = np.array([-0.00342753, 0.01778027, -0.00133933, 0.00100904, -0.01872466])
+
 video = cv.VideoCapture(video_file)
-assert video.isOpened(), 'Cannot read the given input, ' + video_file
+if not video.isOpened():
+    exit()
 
-# Run distortion correction
-show_rectify = True
 map1, map2 = None, None
+
 while True:
-    # Read an image from the video
     valid, img = video.read()
     if not valid:
         break
 
-    # Rectify geometric distortion (Alternative: `cv.undistort()`)
-    info = "Original"
-    if show_rectify:
-        if map1 is None or map2 is None:
-            map1, map2 = cv.initUndistortRectifyMap(K, dist_coeff, None, None, (img.shape[1], img.shape[0]), cv.CV_32FC1)
-        img = cv.remap(img, map1, map2, interpolation=cv.INTER_LINEAR)
-        info = "Rectified"
-    cv.putText(img, info, (10, 25), cv.FONT_HERSHEY_DUPLEX, 0.6, (0, 255, 0))
+    h, w = img.shape[:2]
 
-    # Show the image and process the key event
-    cv.imshow("Geometric Distortion Correction", img)
+    if map1 is None or map2 is None:
+        map1, map2 = cv.initUndistortRectifyMap(K, dist_coeff, None, None, (w, h), cv.CV_32FC1)
+
+    rectified_img = cv.remap(img, map1, map2, interpolation=cv.INTER_LINEAR)
+
+    cv.putText(img, "ORIGINAL", (50, 80), cv.FONT_HERSHEY_DUPLEX, 1.5, (0, 0, 255), 3)
+    cv.putText(rectified_img, "RECTIFIED", (50, 80), cv.FONT_HERSHEY_DUPLEX, 1.5, (0, 255, 0), 3)
+
+    combined_view = np.hstack((img, rectified_img))
+    display_img = cv.resize(combined_view, (w, h // 2))
+
+    cv.imshow("Comparison", display_img)
+
     key = cv.waitKey(10)
-    if key == ord(' '):     # Space: Pause
-        key = cv.waitKey()
-    if key == 27:           # ESC: Exit
+    if key == ord(' '):
+        cv.waitKey()
+    elif key == 27:
         break
-    elif key == ord('\t'):  # Tab: Toggle the mode
-        show_rectify = not show_rectify
 
 video.release()
 cv.destroyAllWindows()
